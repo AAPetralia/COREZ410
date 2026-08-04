@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#123B45">
+<meta name="theme-color" content="#F3EFE6">
 <title>COREZ 4.10</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,22 +29,28 @@ button{font:inherit;color:inherit;cursor:pointer}
 .matita-diag{height:6px;background:repeating-linear-gradient(115deg,var(--blu) 0 10px,#E4572E 10px 20px);border-radius:3px;opacity:.9}
 
 /* ---------- lucchetto ---------- */
-#lock{position:fixed;inset:0;background:#0E2E37;color:#F3EFE6;display:flex;flex-direction:column;justify-content:center;padding:32px 26px;z-index:100}
-#lock h1{font-size:38px;color:#fff;letter-spacing:.01em}
-#lock h1 .ver{font-family:var(--mono);font-size:15px;font-weight:400;color:#E4572E;margin-left:8px;vertical-align:super}
-#lock .sub{color:#9DB3B7;font-size:14px;margin:10px 0 30px;max-width:32ch}
-#lock .matita-diag{width:76px;margin-bottom:26px}
-#lock input{width:100%;padding:15px 16px;border-radius:12px;border:1.5px solid #2A5560;background:#092229;color:#fff;font-family:var(--mono);font-size:17px;margin-bottom:12px}
+#lock{position:fixed;inset:0;background:var(--paper);color:var(--ink);display:flex;flex-direction:column;justify-content:center;padding:32px 26px;z-index:100}
+.logo{font-family:var(--display);font-weight:700;line-height:1;display:inline-flex;align-items:baseline;letter-spacing:.005em;white-space:nowrap}
+.logo .c,.logo .pt{color:#111111}
+.logo .q{color:var(--rosso)}
+.logo .d{color:var(--blu)}
+.logo .penna{width:.78em;height:.78em;align-self:center;margin-left:-.09em;transform:translateY(.05em);flex:0 0 auto}
+#lock .logo{font-size:40px}
+.marchio{display:flex;align-items:center;margin-bottom:2px}
+.marchio .logo{font-size:19px}
+.marchio .sp{flex:1}
+#lock .sub{color:var(--grafite);font-size:14px;margin:14px 0 30px;max-width:32ch}
+#lock input{width:100%;padding:15px 16px;border-radius:12px;border:1.5px solid var(--linea);background:var(--card);color:var(--ink);font-family:var(--mono);font-size:17px;margin-bottom:12px}
 #lock input:focus{outline:none;border-color:var(--blu)}
-#lock button{width:100%;padding:15px;border:0;border-radius:12px;background:#E4572E;color:#fff;font-weight:600;font-size:16px}
-#lock .msg{min-height:22px;font-size:13.5px;margin-top:14px;color:#F0A9A0}
-#lock .nota{margin-top:26px;font-size:12.5px;color:#88999C;line-height:1.5}
+#lock button{width:100%;padding:15px;border:0;border-radius:12px;background:var(--blu);color:#fff;font-weight:600;font-size:16px}
+#lock .msg{min-height:22px;font-size:13.5px;margin-top:14px;color:var(--rosso)}
+#lock .nota{margin-top:26px;font-size:12.5px;color:var(--grafite);line-height:1.5}
 
 /* ---------- struttura ---------- */
 #app{display:none;flex-direction:column;height:100%}
-header{padding:14px 18px 10px;border-bottom:1px solid var(--linea);background:var(--paper);position:sticky;top:0;z-index:20}
+header{padding:10px 18px 10px;border-bottom:1px solid var(--linea);background:var(--paper);position:sticky;top:0;z-index:20}
 header .riga{display:flex;align-items:center;gap:12px}
-header h2{font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header h2{font-size:19px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .iconbtn{background:none;border:0;padding:8px;border-radius:10px;color:var(--grafite);font-size:14px;font-weight:600}
 main{flex:1;overflow-y:auto;padding:16px 16px 96px;-webkit-overflow-scrolling:touch}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--linea);padding:6px 0 max(8px,env(safe-area-inset-bottom))}
@@ -110,8 +116,7 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 <body>
 
 <div id="lock">
-  <div class="matita-diag"></div>
-  <h1>COREZ<span class="ver">4.10</span></h1>
+  <h1 class="logo" id="logoLock"></h1>
   <div class="sub" id="lockSub">Inserisci la passphrase per aprire i dati.</div>
   <input type="password" id="p1" autocomplete="current-password" placeholder="Passphrase">
   <input type="password" id="p2" style="display:none" autocomplete="new-password" placeholder="Ripeti la passphrase">
@@ -122,10 +127,11 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 
 <div id="app">
   <header>
+    <div class="marchio"><span class="logo" id="logoTop"></span><span class="sp"></span>
+      <button class="iconbtn" id="lockNow">Blocca</button></div>
     <div class="riga">
       <button class="iconbtn" id="back" style="display:none">‹ Indietro</button>
       <h2 id="titolo">Verifiche</h2>
-      <button class="iconbtn" id="lockNow">Blocca</button>
     </div>
   </header>
   <main id="main"></main>
@@ -265,6 +271,17 @@ const num = (x, d=1) => x === null || x === undefined ? '–' : (Math.round(x*10
 
 /* ---------- interfaccia ---------- */
 const $ = s => document.querySelector(s);
+const LOGO = '<span class="c">COREZ</span>&nbsp;<span class="q">4</span><span class="pt">.</span>'
+  + '<span class="d">10</span>'
+  + '<svg class="penna" viewBox="0 0 44 44" aria-hidden="true"><g transform="rotate(38 22 22)">'
+  + '<rect x="16" y="3" width="12" height="6" rx="2.5" fill="#8E2B20"/>'
+  + '<rect x="16" y="8" width="12" height="19" fill="#C0392B"/>'
+  + '<rect x="19.4" y="11" width="2.6" height="11" rx="1.3" fill="#E4572E"/>'
+  + '<rect x="15" y="26" width="14" height="2.6" rx="1" fill="#8E2B20"/>'
+  + '<polygon points="16,29 28,29 22,41" fill="#C0392B"/>'
+  + '<polygon points="19.6,35.5 24.4,35.5 22,41" fill="#123B45"/></g></svg>';
+document.getElementById('logoLock').innerHTML = LOGO;
+document.getElementById('logoTop').innerHTML = LOGO;
 const main = $('#main'), titolo = $('#titolo'), back = $('#back');
 let tab = 'verifiche', vista = null;   // vista = {tipo, ...} per le schermate di dettaglio
 
