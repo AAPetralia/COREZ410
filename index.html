@@ -105,6 +105,10 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 .esbar button{flex:0 0 auto;min-width:42px;height:42px;border-radius:11px;border:1.5px solid var(--linea);background:var(--card);font-family:var(--mono);font-size:14px;font-weight:600;color:var(--grafite)}
 .esbar button.pieno{border-color:var(--blu);color:var(--blu)}
 .esbar button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.maxbox{display:flex;align-items:center;gap:2px;border:1.5px solid var(--linea);border-radius:10px;background:var(--card);overflow:hidden;flex:0 0 auto}
+.maxbox button{border:0;background:none;padding:7px 11px;font-size:15px;font-weight:600;color:var(--blu)}
+.maxbox button#mval{font-size:13px;color:var(--ink);border-left:1px solid var(--linea);border-right:1px solid var(--linea);padding:7px 12px}
+.maxbox button:active{background:#E7E0D1}
 .tast{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
 .tast button{padding:16px 4px;border-radius:12px;border:1.5px solid var(--linea);background:var(--card);font-family:var(--mono);font-size:17px;font-weight:600}
 .tast button:active{background:#E7E0D1}
@@ -115,6 +119,28 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 .toast{position:fixed;left:16px;right:16px;bottom:84px;background:var(--ink);color:#fff;padding:13px 16px;border-radius:12px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- foglio A4 ---------- */
+#stampa{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body{background:#fff}
+  #lock,#app,nav,.toast{display:none!important}
+  #stampa{display:block;color:#000;font-family:var(--body)}
+  #stampa .cap{display:flex;align-items:baseline;gap:10px;border-bottom:1.2pt solid #000;padding-bottom:3pt;margin-bottom:5pt}
+  #stampa .cap h1{font-family:var(--display);font-size:13pt;margin:0}
+  #stampa .cap .m{font-size:8pt;color:#333}
+  #stampa table{width:100%;border-collapse:collapse;table-layout:fixed}
+  #stampa th,#stampa td{border:.4pt solid #999;padding:1.2pt 1pt;text-align:center;overflow:hidden}
+  #stampa th{background:#EDEDED;font-weight:600}
+  #stampa .nm{text-align:left;padding-left:3pt;white-space:nowrap;text-overflow:ellipsis}
+  #stampa .mx{background:#F6F6F6;font-style:italic}
+  #stampa .num{font-family:var(--mono)}
+  #stampa .gr{font-weight:700}
+  #stampa .ins{color:#000;text-decoration:underline}
+  #stampa .pie{margin-top:5pt;font-size:7.5pt;color:#222;display:flex;gap:14pt;flex-wrap:wrap}
+  #stampa .rid{margin-top:3pt;font-size:7pt;color:#333}
+}
 </style>
 </head>
 <body>
@@ -146,6 +172,7 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<div id="stampa"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -487,7 +514,14 @@ function schedaCorreggi(){
     </div>
     <div class="esbar" id="esbar">${v.punti.map((pt,i) =>
       `<button data-e="${i}" class="${i===ei?'on':(typeof d.p[i]==='number'?'pieno':'')}">${i+1}</button>`).join('')}</div>
-    <div class="riga"><div class="muted">Esercizio ${ei+1} di ${v.punti.length} · max ${num(mx)} punti</div></div>
+    <div class="riga" style="margin-bottom:2px">
+      <div class="muted">Esercizio ${ei+1} di ${v.punti.length}</div><span class="sp"></span>
+      <div class="maxbox">
+        <button id="mmeno">−</button>
+        <button id="mval" class="mono">max ${num(mx,2)}</button>
+        <button id="mpiu">+</button>
+      </div>
+    </div>
     <div class="tast" id="tast">
       ${passi.map(x => `<button data-v="${x}">${num(x,2)}</button>`).join('')}
       <button class="vuota sp2" data-v="null">Non svolto</button>
@@ -497,6 +531,18 @@ function schedaCorreggi(){
     <button class="btn sec" id="avanti">${vista.modo==='esercizio' ? 'Alunno successivo' : 'Esercizio successivo'}</button>`;
 
   main.querySelectorAll('#esbar button').forEach(b => b.onclick = () => { vista.e = +b.dataset.e; render(); });
+  const cambiaMax = nuovo => {
+    if(isNaN(nuovo) || nuovo < 0) return toast('Valore non valido.');
+    v.punti[ei] = Math.round(nuovo * 100) / 100;
+    salva(); render();
+  };
+  $('#mmeno').onclick = () => cambiaMax(Math.max(0, mx - passo));
+  $('#mpiu').onclick  = () => cambiaMax(mx + passo);
+  $('#mval').onclick  = () => {
+    const r = prompt(`Punti massimi dell'esercizio ${ei+1}:`, mx);
+    if(r === null) return;
+    cambiaMax(parseFloat(String(r).replace(',','.')));
+  };
   main.querySelectorAll('#tast button').forEach(b => b.onclick = () => {
     const raw = b.dataset.v;
     if(raw === 'ass'){ d.ass = !d.ass; salva(); return render(); }
@@ -574,7 +620,10 @@ function corpoStat(v, box){
         <span class="muted" style="font-size:12.5px">max ${num(x.pt)}</span><span class="sp"></span>
         <span class="mono" style="font-weight:600">${x.r===null?'–':Math.round(x.r*100)+'%'}</span></div>
         <div class="barra"><i style="width:${x.r===null?0:x.r*100}%;background:${col(x.r)}"></i></div></div>`).join('')}
-    </div>`;
+    </div>
+    <button class="btn sec" id="pdf">Esporta in PDF · A4</button>
+    <div class="muted" style="margin-top:8px;text-align:center">Tabellone dei punteggi su una sola pagina orizzontale.</div>`;
+  $('#pdf').onclick = () => stampaVerifica(v);
 }
 
 /* ---------- impostazioni verifica ---------- */
@@ -839,6 +888,64 @@ function importaExcel(file){
     render();
   };
   fr.readAsArrayBuffer(file);
+}
+
+/* ---------- stampa A4 ---------- */
+function stampaVerifica(v){
+  const alunni = AL();
+  const nEs = v.punti.length;
+  // tutto su una pagina: il corpo si stringe al crescere di righe e colonne
+  const fs = Math.max(5, Math.min(8.5, 8.5 - Math.max(0, nEs - 14) * 0.18 - Math.max(0, alunni.length - 24) * 0.12));
+  const wNome = Math.max(32, 50 - Math.max(0, nEs - 16) * 0.7);
+  const e = esitiDi(v), pct = e.map(x => x.e.pct), voti = e.map(x => x.e.voto);
+  const suff = voti.filter(x => x >= 6).length;
+  const cella = (a, i) => {
+    const d = v.dati[a.id];
+    if(!d) return '';
+    if(d.ass) return '';
+    if(typeof d.totManuale === 'number') return i === 0 ? '—' : '';
+    const x = (d.p || [])[i];
+    return typeof x === 'number' ? num(x, 2) : '';
+  };
+  const ridotti = alunni.filter(a => v.dati[a.id] && v.dati[a.id].max)
+                        .map(a => a.nome + ' ' + num(v.dati[a.id].max, 2));
+  const riga = a => {
+    const es = esito(v, a.id);
+    const val = es.stato === 'ok' ? num(es.voto) : (es.stato === 'assente' ? 'ass.' : '');
+    return `<tr>
+      <td class="num">${a.n}</td>
+      <td class="nm">${esc(a.nome)}</td>
+      ${v.punti.map((p,i) => `<td class="num">${cella(a,i)}</td>`).join('')}
+      <td class="num">${es.stato === 'ok' ? num(es.tot,2) : ''}</td>
+      <td class="num">${es.stato === 'ok' ? num(es.pct) : ''}</td>
+      <td class="num gr ${es.stato==='ok'&&es.voto<6?'ins':''}">${val}</td></tr>`;
+  };
+  $('#stampa').innerHTML = `
+    <div class="cap">
+      <h1>${esc(v.titolo)}</h1>
+      <div class="m">${esc(CL().nome)} · ${esc(v.materia)}${v.data ? ' · ' + esc(v.data.split('-').reverse().join('/')) : ''} · totale ${num(maxTot(v),2)} punti</div>
+    </div>
+    <table style="font-size:${fs.toFixed(2)}pt">
+      <colgroup><col style="width:4mm"><col style="width:${wNome}mm">
+        ${v.punti.map(()=>'<col>').join('')}
+        <col style="width:11mm"><col style="width:10mm"><col style="width:11mm"></colgroup>
+      <tr><th></th><th class="nm">Alunno</th>
+        ${v.punti.map((p,i)=>`<th>${i+1}</th>`).join('')}
+        <th>Tot</th><th>%</th><th>Voto</th></tr>
+      <tr class="mx"><td></td><td class="nm">punti massimi</td>
+        ${v.punti.map(p=>`<td class="num">${num(p,2)}</td>`).join('')}
+        <td class="num">${num(maxTot(v),2)}</td><td></td><td></td></tr>
+      ${alunni.map(riga).join('')}
+    </table>
+    <div class="pie">
+      <span>Corrette: <b>${e.length}</b></span>
+      <span>Media voto: <b>${voti.length?num(media(voti),2):'–'}</b></span>
+      <span>Media %: <b>${pct.length?num(media(pct)):'–'}</b></span>
+      <span>Mediana %: <b>${pct.length?num(mediana(pct)):'–'}</b></span>
+      <span>Sufficienti: <b>${voti.length?suff+'/'+voti.length+' ('+Math.round(suff/voti.length*100)+'%)':'–'}</b></span>
+    </div>
+    ${ridotti.length ? `<div class="rid">Punti massimi ridotti: ${ridotti.map(esc).join(' · ')}</div>` : ''}`;
+  window.print();
 }
 
 /* ---------- backup ---------- */
