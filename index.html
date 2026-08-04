@@ -77,6 +77,10 @@ td,th{padding:8px 4px;border-bottom:1px solid var(--linea);text-align:left}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--grafite);font-weight:600}
 .barra{height:7px;background:#E7E0D1;border-radius:4px;overflow:hidden}
 .barra i{display:block;height:100%;border-radius:4px}
+.cls{display:flex;gap:7px;overflow-x:auto;padding:0 0 14px;scrollbar-width:none}
+.cls::-webkit-scrollbar{display:none}
+.cls button{flex:0 0 auto;padding:8px 15px;border-radius:20px;border:1.5px solid var(--linea);background:var(--card);font-size:13.5px;font-weight:600;color:var(--grafite)}
+.cls button.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .vuoto{text-align:center;padding:52px 20px;color:var(--grafite)}
 .vuoto h3{font-size:19px;color:var(--ink);margin-bottom:8px}
 
@@ -172,16 +176,38 @@ async function decifra(chiave, iv, ct){
 
 /* ---------- stato ---------- */
 let K = null, S = null, salt = null;
-const nuovoStato = () => ({
-  v: 1,
-  classe: {nome:'1D', alunni:[]},
+const nuovoStato = () => {
+  const c = {id:uid(), nome:'1D', alunni:[]};
+  return {
+  v: 2,
+  classi: [c],
+  attiva: c.id,
   verifiche: [],
   soglie: [{p:0,v:4},{p:40,v:5},{p:46,v:5.5},{p:53,v:6},{p:62,v:6.5},{p:65,v:7},
            {p:72,v:7.5},{p:75,v:8},{p:82,v:8.5},{p:85,v:9},{p:92,v:9.5},{p:95,v:10}],
   fasce: [{n:'Fascia alta',da:85},{n:'Fascia medio-alta',da:70},{n:'Fascia media',da:60},
           {n:'Fascia medio-bassa',da:55},{n:'Fascia bassa',da:0}]
-});
-const uid = () => Math.random().toString(36).slice(2,10);
+  };
+};
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+/* porta i dati vecchi (classe unica) alla struttura a piu classi */
+function migra(st){
+  if(!st.classi){
+    const c = {id:uid(), nome:(st.classe && st.classe.nome) || '1D',
+               alunni:(st.classe && st.classe.alunni) || []};
+    st.classi = [c]; st.attiva = c.id; delete st.classe;
+    (st.verifiche||[]).forEach(v => v.classeId = c.id);
+    st.v = 2;
+  }
+  if(!st.classi.length) st.classi = [{id:uid(), nome:'1D', alunni:[]}];
+  if(!st.classi.some(c => c.id === st.attiva)) st.attiva = st.classi[0].id;
+  st.verifiche.forEach(v => { if(!v.classeId) v.classeId = st.classi[0].id; });
+  return st;
+}
+const CL = () => S.classi.find(c => c.id === S.attiva) || S.classi[0];
+const AL = () => CL().alunni;
+const VF = () => S.verifiche.filter(v => v.classeId === S.attiva);
 
 let salvaTimer = null;
 function salva(){
@@ -222,7 +248,7 @@ function votoDa(pct){
   return v;
 }
 function esitiDi(v){
-  return S.classe.alunni.map(a => ({a, e:esito(v, a.id)})).filter(x => x.e.stato === 'ok');
+  return AL().map(a => ({a, e:esito(v, a.id)})).filter(x => x.e.stato === 'ok');
 }
 const media = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
 function mediana(a){
@@ -248,6 +274,16 @@ function toast(t){
 }
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+function selettore(){
+  if(S.classi.length < 2) return '';
+  return `<div class="cls">${S.classi.map(c =>
+    `<button data-c="${c.id}" class="${c.id===S.attiva?'on':''}">${esc(c.nome)}</button>`).join('')}</div>`;
+}
+function cablaSelettore(){
+  main.querySelectorAll('.cls button').forEach(b => b.onclick = () => {
+    S.attiva = b.dataset.c; salva(); vista = null; render();
+  });
+}
 function vai(v){ vista = v; render(); window.scrollTo(0,0); main.scrollTop = 0; }
 back.onclick = () => {
   if(vista && vista.padre) vai(vista.padre);
@@ -273,16 +309,17 @@ function render(){
 
 /* ---------- elenco verifiche ---------- */
 function vistaVerifiche(){
-  titolo.textContent = 'Verifiche';
-  if(!S.verifiche.length){
-    main.innerHTML = `<div class="vuoto"><h3>Nessuna verifica</h3>
+  titolo.textContent = 'Verifiche · ' + CL().nome;
+  if(!VF().length){
+    main.innerHTML = selettore() + `<div class="vuoto"><h3>Nessuna verifica</h3>
       <p>Crea la prima verifica, oppure importa il tuo file Excel da <b>Altro</b>.</p></div>
       <button class="btn" id="nv">Nuova verifica</button>`;
+    cablaSelettore();
     $('#nv').onclick = () => vai({tipo:'nuovaVerifica'});
     return;
   }
-  const ord = [...S.verifiche].sort((a,b)=> (b.data||'').localeCompare(a.data||''));
-  main.innerHTML = ord.map(v => {
+  const ord = [...VF()].sort((a,b)=> (b.data||'').localeCompare(a.data||''));
+  main.innerHTML = selettore() + ord.map(v => {
     const e = esitiDi(v), voti = e.map(x=>x.e.voto);
     const suff = voti.filter(x=>x>=6).length;
     return `<div class="card click" data-id="${v.id}">
@@ -292,7 +329,7 @@ function vistaVerifiche(){
         <span class="muted mono">${v.data ? esc(v.data.split('-').reverse().join('/')) : ''}</span>
       </div>
       <h3 style="font-size:17px;margin:9px 0 3px">${esc(v.titolo)}</h3>
-      <div class="muted">${e.length} corrette su ${S.classe.alunni.length} · ${v.punti.length} esercizi · ${num(maxTot(v))} punti</div>
+      <div class="muted">${e.length} corrette su ${AL().length} · ${v.punti.length} esercizi · ${num(maxTot(v))} punti</div>
       <div class="riga" style="margin-top:11px">
         <div><div class="big">${voti.length?num(media(voti),2):'–'}</div><div class="muted">media voto</div></div>
         <span class="sp"></span>
@@ -300,6 +337,7 @@ function vistaVerifiche(){
       </div>
     </div>`;
   }).join('') + `<button class="btn" id="nv">Nuova verifica</button>`;
+  cablaSelettore();
   main.querySelectorAll('.card').forEach(c => c.onclick = () => vai({tipo:'verifica', id:c.dataset.id}));
   $('#nv').onclick = () => vai({tipo:'nuovaVerifica'});
 }
@@ -318,7 +356,7 @@ function schedaNuovaVerifica(){
     if(!t) return toast('Serve un titolo.');
     const n = Math.max(1, Math.min(40, parseInt($('#n').value) || 10));
     const v = {id:uid(), titolo:t, materia:$('#m').value, data:$('#d').value,
-               punti:Array(n).fill(1), dati:{}};
+               classeId:S.attiva, punti:Array(n).fill(1), dati:{}};
     S.verifiche.push(v); salva();
     vai({tipo:'verifica', id:v.id});
   };
@@ -340,7 +378,7 @@ function schedaVerifica(){
 }
 
 function corpoCorreggi(v, box){
-  if(!S.classe.alunni.length){
+  if(!AL().length){
     box.innerHTML = `<div class="vuoto"><h3>Manca l'elenco della classe</h3>
       <p>Aggiungi gli alunni da <b>Classe</b>, o importa il file Excel da <b>Altro</b>.</p></div>`;
     return;
@@ -348,11 +386,11 @@ function corpoCorreggi(v, box){
   const fatti = esitiDi(v).length;
   box.innerHTML = `
     <div class="riga" style="margin-bottom:12px">
-      <div class="muted">${fatti} su ${S.classe.alunni.length} corrette</div><span class="sp"></span>
+      <div class="muted">${fatti} su ${AL().length} corrette</div><span class="sp"></span>
       <button class="iconbtn" id="pere">Per esercizio ›</button>
     </div>
-    <div class="matita" style="width:${S.classe.alunni.length?fatti/S.classe.alunni.length*100:0}%;margin-bottom:16px"></div>
-    ` + S.classe.alunni.map(a => {
+    <div class="matita" style="width:${AL().length?fatti/AL().length*100:0}%;margin-bottom:16px"></div>
+    ` + AL().map(a => {
       const e = esito(v, a.id);
       let val = '–', cls = '';
       if(e.stato === 'assente'){ val = 'ASS'; cls = 'muted'; }
@@ -364,14 +402,14 @@ function corpoCorreggi(v, box){
     }).join('');
   box.querySelectorAll('.arow').forEach(r => r.onclick = () =>
     vai({tipo:'correggi', id:v.id, aId:r.dataset.a, e:0, modo:'alunno', padre:{...vista}}));
-  $('#pere').onclick = () => vai({tipo:'correggi', id:v.id, aId:S.classe.alunni[0].id, e:0, modo:'esercizio', padre:{...vista}});
+  $('#pere').onclick = () => vai({tipo:'correggi', id:v.id, aId:AL()[0].id, e:0, modo:'esercizio', padre:{...vista}});
 }
 
 /* ---------- inserimento punteggi ---------- */
 function schedaCorreggi(){
   const v = S.verifiche.find(x => x.id === vista.id);
-  const ai = S.classe.alunni.findIndex(a => a.id === vista.aId);
-  const a = S.classe.alunni[ai];
+  const ai = AL().findIndex(a => a.id === vista.aId);
+  const a = AL()[ai];
   if(!v || !a){ vista = null; return render(); }
   if(!v.dati[a.id]) v.dati[a.id] = {p:Array(v.punti.length).fill(null), ass:false, max:null, totManuale:null};
   const d = v.dati[a.id];
@@ -422,14 +460,14 @@ function schedaCorreggi(){
   function avanti(){
     if(vista.modo === 'esercizio'){
       const next = ai + 1;
-      if(next < S.classe.alunni.length){ vista.aId = S.classe.alunni[next].id; render(); }
-      else if(ei + 1 < v.punti.length){ vista.aId = S.classe.alunni[0].id; vista.e = ei + 1; render(); }
+      if(next < AL().length){ vista.aId = AL()[next].id; render(); }
+      else if(ei + 1 < v.punti.length){ vista.aId = AL()[0].id; vista.e = ei + 1; render(); }
       else { toast('Esercizi completati.'); vai(vista.padre); }
     } else {
       if(ei + 1 < v.punti.length){ vista.e = ei + 1; render(); }
       else {
         const next = ai + 1;
-        if(next < S.classe.alunni.length){ vista.aId = S.classe.alunni[next].id; vista.e = 0; render(); }
+        if(next < AL().length){ vista.aId = AL()[next].id; vista.e = 0; render(); }
         else { toast('Classe completata.'); vai(vista.padre); }
       }
     }
@@ -441,7 +479,7 @@ function corpoStat(v, box){
   const e = esitiDi(v);
   if(!e.length){ box.innerHTML = `<div class="vuoto"><h3>Ancora nessun dato</h3><p>Le statistiche compaiono appena correggi la prima verifica.</p></div>`; return; }
   const pct = e.map(x=>x.e.pct), voti = e.map(x=>x.e.voto);
-  const ass = S.classe.alunni.filter(a => (v.dati[a.id]||{}).ass).length;
+  const ass = AL().filter(a => (v.dati[a.id]||{}).ass).length;
   const suff = voti.filter(x=>x>=6).length;
   const righe = [
     ['Corrette', e.length], ['Assenti', ass],
@@ -497,7 +535,7 @@ function corpoImp(v, box){
     <button class="btn sec" id="addes">Aggiungi esercizio</button>
     <label style="margin-top:22px">Punti massimi ridotti (PDP)</label>
     <div class="muted" style="margin-bottom:8px">Lascia vuoto per usare il totale della classe.</div>
-    ${S.classe.alunni.map(a=>`<div class="riga" style="margin-bottom:7px">
+    ${AL().map(a=>`<div class="riga" style="margin-bottom:7px">
       <span style="flex:1;font-size:14px">${esc(a.nome)}</span>
       <input type="number" step="0.5" min="0" data-max="${a.id}" style="width:88px;text-align:center;padding:9px"
         value="${(v.dati[a.id]&&v.dati[a.id].max)||''}" placeholder="${num(maxTot(v))}"></div>`).join('')}
@@ -524,38 +562,40 @@ function corpoImp(v, box){
 
 /* ---------- classe ---------- */
 function vistaClasse(){
-  titolo.textContent = 'Classe ' + S.classe.nome;
-  if(!S.classe.alunni.length){
-    main.innerHTML = `<div class="vuoto"><h3>Elenco vuoto</h3><p>Aggiungi gli alunni o importa il file Excel da <b>Altro</b>.</p></div>
+  titolo.textContent = 'Classe ' + CL().nome;
+  if(!AL().length){
+    main.innerHTML = selettore() + `<div class="vuoto"><h3>Elenco vuoto</h3><p>Aggiungi gli alunni o importa il file Excel da <b>Altro</b>.</p></div>
       <button class="btn" id="ge">Gestisci alunni</button>`;
+    cablaSelettore();
     $('#ge').onclick = () => vai({tipo:'alunni'});
     return;
   }
-  const righe = S.classe.alunni.map(a => {
-    const voti = S.verifiche.map(v => esito(v, a.id)).filter(e => e.stato === 'ok').map(e => e.voto);
+  const righe = AL().map(a => {
+    const voti = VF().map(v => esito(v, a.id)).filter(e => e.stato === 'ok').map(e => e.voto);
     return {a, m:media(voti), n:voti.length};
   });
-  main.innerHTML = righe.map(r => `<div class="arow click" data-a="${r.a.id}">
+  main.innerHTML = selettore() + righe.map(r => `<div class="arow click" data-a="${r.a.id}">
       <span class="mono muted" style="width:22px">${r.a.n}</span>
       <span class="nome">${esc(r.a.nome)}</span>
       <span class="muted mono" style="margin-right:6px">${r.n}</span>
       <span class="val ${r.m!==null&&r.m<6?'rosso':'blu'}">${r.m===null?'–':num(r.m,2)}</span></div>`).join('')
     + `<button class="btn sec" id="ge">Gestisci alunni</button>`;
+  cablaSelettore();
   main.querySelectorAll('.arow').forEach(x => x.onclick = () => vai({tipo:'alunno', id:x.dataset.a}));
   $('#ge').onclick = () => vai({tipo:'alunni'});
 }
 
 function schedaAlunno(){
-  const a = S.classe.alunni.find(x => x.id === vista.id);
+  const a = AL().find(x => x.id === vista.id);
   if(!a){ vista = null; return render(); }
   titolo.textContent = a.nome;
   const per = m => {
-    const voti = S.verifiche.filter(v => v.materia === m).map(v => esito(v, a.id))
+    const voti = VF().filter(v => v.materia === m).map(v => esito(v, a.id))
                   .filter(e => e.stato === 'ok').map(e => e.voto);
     return media(voti);
   };
-  const tutte = S.verifiche.map(v => esito(v, a.id)).filter(e => e.stato==='ok').map(e => e.voto);
-  const ord = [...S.verifiche].sort((x,y)=>(y.data||'').localeCompare(x.data||''));
+  const tutte = VF().map(v => esito(v, a.id)).filter(e => e.stato==='ok').map(e => e.voto);
+  const ord = [...VF()].sort((x,y)=>(y.data||'').localeCompare(x.data||''));
   main.innerHTML = `
     <div class="card"><div class="riga" style="text-align:center">
       ${[['Matematica',per('Matematica')],['Scienze',per('Scienze')],['Generale',media(tutte)]]
@@ -572,11 +612,13 @@ function schedaAlunno(){
 }
 
 function schedaAlunni(){
-  titolo.textContent = 'Alunni';
+  titolo.textContent = 'Classi e alunni';
   main.innerHTML = `
-    <label>Nome della classe</label><input type="text" id="cn" value="${esc(S.classe.nome)}">
+    ${selettore()}
+    <label>Nome della classe</label><input type="text" id="cn" value="${esc(CL().nome)}">
+    <button class="btn sec" id="nuovaCl">Aggiungi una classe</button>
     <label style="margin-top:20px">Elenco</label>
-    ${S.classe.alunni.map(a=>`<div class="riga" style="margin-bottom:7px">
+    ${AL().map(a=>`<div class="riga" style="margin-bottom:7px">
       <span class="mono muted" style="width:22px">${a.n}</span>
       <input type="text" data-n="${a.id}" value="${esc(a.nome)}" style="flex:1">
       <button class="iconbtn rosso" data-del="${a.id}">Togli</button></div>`).join('')}
@@ -584,23 +626,44 @@ function schedaAlunni(){
     <div class="muted" style="margin-bottom:8px">Un nome per riga: puoi incollare l'elenco intero.</div>
     <textarea id="nuovi" rows="4" style="width:100%;padding:12px;border:1.5px solid var(--linea);border-radius:11px;font:inherit"></textarea>
     <button class="btn" id="add">Aggiungi</button>`;
-  $('#cn').oninput = e => { S.classe.nome = e.target.value; salva(); };
+  cablaSelettore();
+  $('#nuovaCl').onclick = () => {
+    const n = prompt('Nome della nuova classe (es. 2B):');
+    if(!n || !n.trim()) return;
+    const c = {id:uid(), nome:n.trim(), alunni:[]};
+    S.classi.push(c); S.attiva = c.id; salva(); render();
+  };
+  $('#cn').oninput = e => { CL().nome = e.target.value; salva(); titolo.textContent = 'Classi e alunni'; };
   main.querySelectorAll('[data-n]').forEach(i => i.onchange = () => {
-    S.classe.alunni.find(a=>a.id===i.dataset.n).nome = i.value.trim(); salva();
+    AL().find(a=>a.id===i.dataset.n).nome = i.value.trim(); salva();
   });
   main.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    const a = S.classe.alunni.find(x=>x.id===b.dataset.del);
+    const a = AL().find(x=>x.id===b.dataset.del);
     if(!confirm('Togliere ' + a.nome + ' dall\'elenco? I suoi punteggi restano nelle verifiche ma non saranno più visibili.')) return;
-    S.classe.alunni = S.classe.alunni.filter(x=>x.id!==a.id);
-    S.classe.alunni.forEach((x,i)=>x.n=i+1); salva(); render();
+    CL().alunni = AL().filter(x=>x.id!==a.id);
+    AL().forEach((x,i)=>x.n=i+1); salva(); render();
   });
   $('#add').onclick = () => {
     const righe = $('#nuovi').value.split('\n').map(s=>s.trim()).filter(Boolean);
-    righe.forEach(n => S.classe.alunni.push({id:uid(), n:S.classe.alunni.length+1, nome:n}));
-    S.classe.alunni.sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
-    S.classe.alunni.forEach((x,i)=>x.n=i+1);
+    righe.forEach(n => AL().push({id:uid(), n:AL().length+1, nome:n}));
+    AL().sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
+    AL().forEach((x,i)=>x.n=i+1);
     salva(); render();
   };
+  if(S.classi.length > 1){
+    const b = document.createElement('button');
+    b.className = 'btn dan'; b.style.marginTop = '26px';
+    b.textContent = 'Elimina la classe ' + CL().nome;
+    b.onclick = () => {
+      const n = VF().length;
+      if(!confirm('Eliminare la classe ' + CL().nome + ' con i suoi ' + AL().length +
+                  ' alunni e ' + n + ' verifiche? Non si torna indietro.')) return;
+      S.verifiche = S.verifiche.filter(v => v.classeId !== S.attiva);
+      S.classi = S.classi.filter(c => c.id !== S.attiva);
+      S.attiva = S.classi[0].id; salva(); vista = null; render();
+    };
+    main.appendChild(b);
+  }
 }
 
 /* ---------- altro ---------- */
@@ -609,10 +672,10 @@ function vistaAltro(){
   main.innerHTML = `
     <div class="card click" id="sog"><h3 style="font-size:16px">Soglie dei voti</h3>
       <div class="muted">Percentuale minima per ogni voto. Vale per tutte le verifiche.</div></div>
-    <div class="card click" id="alu"><h3 style="font-size:16px">Alunni</h3>
-      <div class="muted">${S.classe.alunni.length} nell'elenco della ${esc(S.classe.nome)}</div></div>
+    <div class="card click" id="alu"><h3 style="font-size:16px">Classi e alunni</h3>
+      <div class="muted">${S.classi.length} classe${S.classi.length>1?'i':''} · ${AL().length} alunni nella ${esc(CL().nome)}</div></div>
     <div class="card"><h3 style="font-size:16px">Importa dall'Excel</h3>
-      <div class="muted" style="margin-bottom:10px">Legge il file delle verifiche: un foglio per verifica, riga 2 con i punti, colonna TOTALE.</div>
+      <div class="muted" style="margin-bottom:10px">Legge il file delle verifiche: un foglio per verifica, riga 2 con i punti, colonna TOTALE. Le verifiche entrano nella classe <b>${esc(CL().nome)}</b>.</div>
       <input type="file" id="xls" accept=".xlsx,.xls"></div>
     <div class="card"><h3 style="font-size:16px">Backup</h3>
       <div class="muted" style="margin-bottom:10px">Il file esportato è cifrato: si riapre solo con la passphrase che usi adesso.</div>
@@ -660,8 +723,8 @@ function importaExcel(file){
     catch(err){ return toast('File non leggibile.'); }
     let nuoveV = 0;
     const trovaAlunno = nome => {
-      let a = S.classe.alunni.find(x => x.nome.toUpperCase() === nome.toUpperCase());
-      if(!a){ a = {id:uid(), n:S.classe.alunni.length+1, nome}; S.classe.alunni.push(a); }
+      let a = AL().find(x => x.nome.toUpperCase() === nome.toUpperCase());
+      if(!a){ a = {id:uid(), n:AL().length+1, nome}; AL().push(a); }
       return a;
     };
     wb.SheetNames.forEach(nome => {
@@ -672,7 +735,7 @@ function importaExcel(file){
       if(iTot < 3) return;
       const punti = righe[1].slice(2, iTot).map(x => typeof x === 'number' ? x : 0);
       const v = {id:uid(), titolo:nome, materia: SCIENZE.test(nome) ? 'Scienze' : 'Matematica',
-                 data:'', punti, dati:{}};
+                 data:'', classeId:S.attiva, punti, dati:{}};
       for(let r = 2; r < righe.length; r++){
         const rg = righe[r] || [];
         if(typeof rg[0] !== 'number' || !rg[1]) continue;
@@ -695,8 +758,8 @@ function importaExcel(file){
       if(maxs.length && maxs.every(m => m !== null && m === maxs[0])) righeDati.forEach(d => d.max = null);
       S.verifiche.push(v); nuoveV++;
     });
-    S.classe.alunni.sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
-    S.classe.alunni.forEach((x,i)=>x.n=i+1);
+    AL().sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
+    AL().forEach((x,i)=>x.n=i+1);
     salva();
     toast(nuoveV ? `Importate ${nuoveV} verifiche.` : 'Nessun foglio riconosciuto.');
     tab = 'verifiche'; vista = null;
@@ -728,7 +791,7 @@ function importaBackup(file){
       const k2 = await derivaChiave(pass, unb64(f.s));
       const dati = await decifra(k2, f.iv, f.ct);
       if(!confirm('Sostituire i dati attuali con quelli del backup?')) return;
-      S = dati; salva(); vista = null; render();
+      S = migra(dati); salva(); vista = null; render();
       toast('Backup ripristinato.');
     } catch(e){ toast('Passphrase errata o file danneggiato.'); }
   };
@@ -797,7 +860,7 @@ async function apri(){
     salt = unb64(f.s);
     try {
       const k = await derivaChiave(pass, salt);
-      S = await decifra(k, f.iv, f.ct);
+      S = migra(await decifra(k, f.iv, f.ct));
       K = k;
     } catch(e){ return msg.textContent = 'Passphrase errata.'; }
   }
