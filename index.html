@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#123B45">
+<title>COREZ 4.10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#123B45; --paper:#F3EFE6; --card:#FDFBF6;
+  --blu:#1B5C68; --rosso:#C0392B; --grafite:#7C8380; --linea:#DFD8C9;
+  --ok:#3F7D57;
+  --display:'Zilla Slab',Georgia,serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;overscroll-behavior-y:none}
+h1,h2,h3{font-family:var(--display);margin:0;letter-spacing:-.01em}
+button{font:inherit;color:inherit;cursor:pointer}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* matita bicolore: la firma dell'app */
+.matita{height:5px;background:linear-gradient(90deg,var(--blu) 0 50%,#E4572E 50% 100%);border-radius:3px}
+.matita-diag{height:6px;background:repeating-linear-gradient(115deg,var(--blu) 0 10px,#E4572E 10px 20px);border-radius:3px;opacity:.9}
+
+/* ---------- lucchetto ---------- */
+#lock{position:fixed;inset:0;background:#0E2E37;color:#F3EFE6;display:flex;flex-direction:column;justify-content:center;padding:32px 26px;z-index:100}
+#lock h1{font-size:38px;color:#fff;letter-spacing:.01em}
+#lock h1 .ver{font-family:var(--mono);font-size:15px;font-weight:400;color:#E4572E;margin-left:8px;vertical-align:super}
+#lock .sub{color:#9DB3B7;font-size:14px;margin:10px 0 30px;max-width:32ch}
+#lock .matita-diag{width:76px;margin-bottom:26px}
+#lock input{width:100%;padding:15px 16px;border-radius:12px;border:1.5px solid #2A5560;background:#092229;color:#fff;font-family:var(--mono);font-size:17px;margin-bottom:12px}
+#lock input:focus{outline:none;border-color:var(--blu)}
+#lock button{width:100%;padding:15px;border:0;border-radius:12px;background:#E4572E;color:#fff;font-weight:600;font-size:16px}
+#lock .msg{min-height:22px;font-size:13.5px;margin-top:14px;color:#F0A9A0}
+#lock .nota{margin-top:26px;font-size:12.5px;color:#88999C;line-height:1.5}
+
+/* ---------- struttura ---------- */
+#app{display:none;flex-direction:column;height:100%}
+header{padding:14px 18px 10px;border-bottom:1px solid var(--linea);background:var(--paper);position:sticky;top:0;z-index:20}
+header .riga{display:flex;align-items:center;gap:12px}
+header h2{font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iconbtn{background:none;border:0;padding:8px;border-radius:10px;color:var(--grafite);font-size:14px;font-weight:600}
+main{flex:1;overflow-y:auto;padding:16px 16px 96px;-webkit-overflow-scrolling:touch}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--linea);padding:6px 0 max(8px,env(safe-area-inset-bottom))}
+nav button{flex:1;background:none;border:0;padding:8px 4px;font-size:11.5px;font-weight:600;color:var(--grafite);display:flex;flex-direction:column;align-items:center;gap:5px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--blu)}
+
+/* ---------- elementi ---------- */
+.card{background:var(--card);border:1px solid var(--linea);border-radius:14px;padding:14px;margin-bottom:12px}
+.card.click:active{transform:scale(.995)}
+.chip{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:20px;background:#E3EDEE;color:var(--blu)}
+.chip.sci{background:#EAF1E4;color:#4A6B33}
+.riga{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.muted{color:var(--grafite);font-size:13px}
+.big{font-family:var(--mono);font-size:22px;font-weight:600}
+.rosso{color:var(--rosso)}
+.blu{color:var(--blu)}
+.btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:600;margin-top:10px}
+.btn.sec{background:transparent;color:var(--ink);border:1.5px solid var(--linea)}
+.btn.dan{background:transparent;color:var(--rosso);border:1.5px solid #EDC9C4}
+.seg{display:flex;background:#E7E0D1;border-radius:11px;padding:3px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:none;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--grafite)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(18,59,69,.14)}
+label{display:block;font-size:12.5px;font-weight:600;color:var(--grafite);margin:12px 0 5px}
+input[type=text],input[type=date],input[type=number],select{width:100%;padding:12px;border:1.5px solid var(--linea);border-radius:11px;background:var(--card);font:inherit;color:var(--ink)}
+input:focus,select:focus{outline:none;border-color:var(--blu)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:8px 4px;border-bottom:1px solid var(--linea);text-align:left}
+th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--grafite);font-weight:600}
+.barra{height:7px;background:#E7E0D1;border-radius:4px;overflow:hidden}
+.barra i{display:block;height:100%;border-radius:4px}
+.vuoto{text-align:center;padding:52px 20px;color:var(--grafite)}
+.vuoto h3{font-size:19px;color:var(--ink);margin-bottom:8px}
+
+/* elenco alunni in correzione */
+.arow{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--linea);border-radius:12px;background:var(--card);margin-bottom:8px}
+.arow .nome{flex:1;font-size:14.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arow .val{font-family:var(--mono);font-weight:600;font-size:16px;min-width:52px;text-align:right}
+.arow.done{border-color:#C7D9DA}
+
+/* schermata inserimento */
+.esbar{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.esbar::-webkit-scrollbar{display:none}
+.esbar button{flex:0 0 auto;min-width:42px;height:42px;border-radius:11px;border:1.5px solid var(--linea);background:var(--card);font-family:var(--mono);font-size:14px;font-weight:600;color:var(--grafite)}
+.esbar button.pieno{border-color:var(--blu);color:var(--blu)}
+.esbar button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.tast{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.tast button{padding:16px 4px;border-radius:12px;border:1.5px solid var(--linea);background:var(--card);font-family:var(--mono);font-size:17px;font-weight:600}
+.tast button:active{background:#E7E0D1}
+.tast button.sp2{grid-column:span 2}
+.tast button.ass{border-color:#EDC9C4;color:var(--rosso)}
+.tast button.vuota{color:var(--grafite)}
+.toast{position:fixed;left:16px;right:16px;bottom:84px;background:var(--ink);color:#fff;padding:13px 16px;border-radius:12px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <div class="matita-diag"></div>
+  <h1>COREZ<span class="ver">4.10</span></h1>
+  <div class="sub" id="lockSub">Inserisci la passphrase per aprire i dati.</div>
+  <input type="password" id="p1" autocomplete="current-password" placeholder="Passphrase">
+  <input type="password" id="p2" style="display:none" autocomplete="new-password" placeholder="Ripeti la passphrase">
+  <button id="lockBtn">Apri</button>
+  <div class="msg" id="lockMsg"></div>
+  <div class="nota" id="lockNota"></div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="riga">
+      <button class="iconbtn" id="back" style="display:none">‹ Indietro</button>
+      <h2 id="titolo">Verifiche</h2>
+      <button class="iconbtn" id="lockNow">Blocca</button>
+    </div>
+  </header>
+  <main id="main"></main>
+  <nav>
+    <button data-t="verifiche" class="on"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 10h8M8 14h5"/></svg>Verifiche</button>
+    <button data-t="classe"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0110 0"/><path d="M16 11a3 3 0 100-6"/><path d="M17 20a5 5 0 00-2-4"/></svg>Classe</button>
+    <button data-t="altro"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>Altro</button>
+  </nav>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ============================================================
+   COREZ 4.10 — correzione verifiche, dati cifrati sul dispositivo
+   Vanilla JS, file singolo. Dati: AES-GCM 256 + PBKDF2 (250k, SHA-256).
+   ============================================================ */
+
+/* ---------- deposito (localStorage con ripiego in memoria) ---------- */
+const mem = {};
+const Box = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+const CHIAVE = 'corez.vault';
+
+/* ---------- cifratura ---------- */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const b64 = b => btoa(String.fromCharCode(...new Uint8Array(b)));
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function derivaChiave(pass, salt){
+  const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:250000, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function cifra(chiave, oggetto){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, chiave, enc.encode(JSON.stringify(oggetto)));
+  return {iv:b64(iv), ct:b64(ct)};
+}
+async function decifra(chiave, iv, ct){
+  const buf = await crypto.subtle.decrypt({name:'AES-GCM', iv:unb64(iv)}, chiave, unb64(ct));
+  return JSON.parse(dec.decode(buf));
+}
+
+/* ---------- stato ---------- */
+let K = null, S = null, salt = null;
+const nuovoStato = () => ({
+  v: 1,
+  classe: {nome:'1D', alunni:[]},
+  verifiche: [],
+  soglie: [{p:0,v:4},{p:40,v:5},{p:46,v:5.5},{p:53,v:6},{p:62,v:6.5},{p:65,v:7},
+           {p:72,v:7.5},{p:75,v:8},{p:82,v:8.5},{p:85,v:9},{p:92,v:9.5},{p:95,v:10}],
+  fasce: [{n:'Fascia alta',da:85},{n:'Fascia medio-alta',da:70},{n:'Fascia media',da:60},
+          {n:'Fascia medio-bassa',da:55},{n:'Fascia bassa',da:0}]
+});
+const uid = () => Math.random().toString(36).slice(2,10);
+
+let salvaTimer = null;
+function salva(){
+  clearTimeout(salvaTimer);
+  salvaTimer = setTimeout(async () => {
+    if(!K) return;
+    const {iv,ct} = await cifra(K, S);
+    Box.set(CHIAVE, JSON.stringify({s:b64(salt), iv, ct}));
+  }, 120);
+}
+
+/* ---------- calcoli ---------- */
+const somma = a => a.reduce((x,y)=> x + (typeof y === 'number' ? y : 0), 0);
+const maxTot = v => somma(v.punti);
+function maxDi(v, aId){
+  const d = v.dati[aId];
+  return (d && typeof d.max === 'number' && d.max > 0) ? d.max : maxTot(v);
+}
+function esito(v, aId){
+  const d = v.dati[aId];
+  if(!d) return {stato:'vuoto'};
+  if(d.ass) return {stato:'assente'};
+  let tot;
+  if(typeof d.totManuale === 'number') tot = d.totManuale;
+  else {
+    const n = d.p.filter(x => typeof x === 'number');
+    if(!n.length) return {stato:'vuoto'};
+    tot = somma(d.p);
+  }
+  const mx = maxDi(v, aId);
+  if(!mx) return {stato:'vuoto'};
+  const pct = tot / mx * 100;
+  return {stato:'ok', tot, pct, voto:votoDa(pct), max:mx};
+}
+function votoDa(pct){
+  let v = S.soglie[0].v;
+  for(const s of S.soglie) if(pct >= s.p) v = s.v;
+  return v;
+}
+function esitiDi(v){
+  return S.classe.alunni.map(a => ({a, e:esito(v, a.id)})).filter(x => x.e.stato === 'ok');
+}
+const media = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+function mediana(a){
+  if(!a.length) return null;
+  const s = [...a].sort((x,y)=>x-y), m = s.length>>1;
+  return s.length % 2 ? s[m] : (s[m-1]+s[m])/2;
+}
+function devstd(a){
+  if(a.length < 2) return null;
+  const m = media(a);
+  return Math.sqrt(a.reduce((x,y)=>x+(y-m)**2,0)/(a.length-1));
+}
+const num = (x, d=1) => x === null || x === undefined ? '–' : (Math.round(x*10**d)/10**d).toString().replace('.',',');
+
+/* ---------- interfaccia ---------- */
+const $ = s => document.querySelector(s);
+const main = $('#main'), titolo = $('#titolo'), back = $('#back');
+let tab = 'verifiche', vista = null;   // vista = {tipo, ...} per le schermate di dettaglio
+
+function toast(t){
+  const el = $('#toast'); el.textContent = t; el.classList.add('on');
+  setTimeout(()=>el.classList.remove('on'), 2200);
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function vai(v){ vista = v; render(); window.scrollTo(0,0); main.scrollTop = 0; }
+back.onclick = () => {
+  if(vista && vista.padre) vai(vista.padre);
+  else { vista = null; render(); }
+};
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  tab = b.dataset.t; vista = null;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+function render(){
+  back.style.display = vista ? '' : 'none';
+  if(vista){
+    ({verifica: schedaVerifica, correggi: schedaCorreggi, alunno: schedaAlunno,
+      nuovaVerifica: schedaNuovaVerifica, soglie: schedaSoglie, alunni: schedaAlunni}[vista.tipo])();
+    return;
+  }
+  if(tab === 'verifiche') vistaVerifiche();
+  else if(tab === 'classe') vistaClasse();
+  else vistaAltro();
+}
+
+/* ---------- elenco verifiche ---------- */
+function vistaVerifiche(){
+  titolo.textContent = 'Verifiche';
+  if(!S.verifiche.length){
+    main.innerHTML = `<div class="vuoto"><h3>Nessuna verifica</h3>
+      <p>Crea la prima verifica, oppure importa il tuo file Excel da <b>Altro</b>.</p></div>
+      <button class="btn" id="nv">Nuova verifica</button>`;
+    $('#nv').onclick = () => vai({tipo:'nuovaVerifica'});
+    return;
+  }
+  const ord = [...S.verifiche].sort((a,b)=> (b.data||'').localeCompare(a.data||''));
+  main.innerHTML = ord.map(v => {
+    const e = esitiDi(v), voti = e.map(x=>x.e.voto);
+    const suff = voti.filter(x=>x>=6).length;
+    return `<div class="card click" data-id="${v.id}">
+      <div class="riga">
+        <span class="chip ${v.materia==='Scienze'?'sci':''}">${esc(v.materia)}</span>
+        <span class="sp"></span>
+        <span class="muted mono">${v.data ? esc(v.data.split('-').reverse().join('/')) : ''}</span>
+      </div>
+      <h3 style="font-size:17px;margin:9px 0 3px">${esc(v.titolo)}</h3>
+      <div class="muted">${e.length} corrette su ${S.classe.alunni.length} · ${v.punti.length} esercizi · ${num(maxTot(v))} punti</div>
+      <div class="riga" style="margin-top:11px">
+        <div><div class="big">${voti.length?num(media(voti),2):'–'}</div><div class="muted">media voto</div></div>
+        <span class="sp"></span>
+        <div style="text-align:right"><div class="big">${voti.length?Math.round(suff/voti.length*100)+'%':'–'}</div><div class="muted">sufficienti</div></div>
+      </div>
+    </div>`;
+  }).join('') + `<button class="btn" id="nv">Nuova verifica</button>`;
+  main.querySelectorAll('.card').forEach(c => c.onclick = () => vai({tipo:'verifica', id:c.dataset.id}));
+  $('#nv').onclick = () => vai({tipo:'nuovaVerifica'});
+}
+
+/* ---------- nuova verifica ---------- */
+function schedaNuovaVerifica(){
+  titolo.textContent = 'Nuova verifica';
+  main.innerHTML = `
+    <label>Titolo</label><input type="text" id="t" placeholder="Es. Frazioni e triangoli">
+    <label>Materia</label><select id="m"><option>Matematica</option><option>Scienze</option></select>
+    <label>Data</label><input type="date" id="d" value="${new Date().toISOString().slice(0,10)}">
+    <label>Numero di esercizi</label><input type="number" id="n" min="1" max="40" value="10">
+    <button class="btn" id="crea">Crea verifica</button>`;
+  $('#crea').onclick = () => {
+    const t = $('#t').value.trim();
+    if(!t) return toast('Serve un titolo.');
+    const n = Math.max(1, Math.min(40, parseInt($('#n').value) || 10));
+    const v = {id:uid(), titolo:t, materia:$('#m').value, data:$('#d').value,
+               punti:Array(n).fill(1), dati:{}};
+    S.verifiche.push(v); salva();
+    vai({tipo:'verifica', id:v.id});
+  };
+}
+
+/* ---------- scheda verifica ---------- */
+function schedaVerifica(){
+  const v = S.verifiche.find(x => x.id === vista.id);
+  if(!v){ vista = null; return render(); }
+  const sub = vista.sub || 'correggi';
+  titolo.textContent = v.titolo;
+  main.innerHTML = `<div class="seg">
+      <button data-s="correggi" class="${sub==='correggi'?'on':''}">Correggi</button>
+      <button data-s="stat" class="${sub==='stat'?'on':''}">Statistiche</button>
+      <button data-s="imp" class="${sub==='imp'?'on':''}">Impostazioni</button>
+    </div><div id="corpo"></div>`;
+  main.querySelectorAll('.seg button').forEach(b => b.onclick = () => { vista.sub = b.dataset.s; render(); });
+  ({correggi:corpoCorreggi, stat:corpoStat, imp:corpoImp}[sub])(v, $('#corpo'));
+}
+
+function corpoCorreggi(v, box){
+  if(!S.classe.alunni.length){
+    box.innerHTML = `<div class="vuoto"><h3>Manca l'elenco della classe</h3>
+      <p>Aggiungi gli alunni da <b>Classe</b>, o importa il file Excel da <b>Altro</b>.</p></div>`;
+    return;
+  }
+  const fatti = esitiDi(v).length;
+  box.innerHTML = `
+    <div class="riga" style="margin-bottom:12px">
+      <div class="muted">${fatti} su ${S.classe.alunni.length} corrette</div><span class="sp"></span>
+      <button class="iconbtn" id="pere">Per esercizio ›</button>
+    </div>
+    <div class="matita" style="width:${S.classe.alunni.length?fatti/S.classe.alunni.length*100:0}%;margin-bottom:16px"></div>
+    ` + S.classe.alunni.map(a => {
+      const e = esito(v, a.id);
+      let val = '–', cls = '';
+      if(e.stato === 'assente'){ val = 'ASS'; cls = 'muted'; }
+      else if(e.stato === 'ok'){ val = num(e.voto); cls = e.voto < 6 ? 'rosso' : 'blu'; }
+      return `<div class="arow ${e.stato==='ok'||e.stato==='assente'?'done':''}" data-a="${a.id}">
+        <span class="mono muted" style="width:22px">${a.n}</span>
+        <span class="nome">${esc(a.nome)}</span>
+        <span class="val ${cls}">${val}</span></div>`;
+    }).join('');
+  box.querySelectorAll('.arow').forEach(r => r.onclick = () =>
+    vai({tipo:'correggi', id:v.id, aId:r.dataset.a, e:0, modo:'alunno', padre:{...vista}}));
+  $('#pere').onclick = () => vai({tipo:'correggi', id:v.id, aId:S.classe.alunni[0].id, e:0, modo:'esercizio', padre:{...vista}});
+}
+
+/* ---------- inserimento punteggi ---------- */
+function schedaCorreggi(){
+  const v = S.verifiche.find(x => x.id === vista.id);
+  const ai = S.classe.alunni.findIndex(a => a.id === vista.aId);
+  const a = S.classe.alunni[ai];
+  if(!v || !a){ vista = null; return render(); }
+  if(!v.dati[a.id]) v.dati[a.id] = {p:Array(v.punti.length).fill(null), ass:false, max:null, totManuale:null};
+  const d = v.dati[a.id];
+  while(d.p.length < v.punti.length) d.p.push(null);
+  const ei = Math.min(vista.e, v.punti.length - 1);
+  const mx = v.punti[ei];
+  const e = esito(v, a.id);
+
+  titolo.textContent = vista.modo === 'esercizio' ? `Esercizio ${ei+1}` : a.nome;
+
+  const passi = [];
+  for(let x = 0; x <= mx + 0.0001; x += 0.5) passi.push(Math.round(x*2)/2);
+
+  main.innerHTML = `
+    <div class="card" style="padding:12px 14px">
+      <div class="riga">
+        <div style="min-width:0">
+          <div style="font-family:var(--display);font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.nome)}</div>
+          <div class="muted">${vista.modo==='esercizio' ? 'correzione per esercizio' : esc(v.titolo)}</div>
+        </div><span class="sp"></span>
+        <div style="text-align:right">
+          <div class="big ${e.stato==='ok'&&e.voto<6?'rosso':'blu'}">${e.stato==='ok'?num(e.voto):(e.stato==='assente'?'ASS':'–')}</div>
+          <div class="muted">${e.stato==='ok'?num(e.tot)+'/'+num(e.max)+' · '+num(e.pct)+'%':'voto'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="esbar" id="esbar">${v.punti.map((pt,i) =>
+      `<button data-e="${i}" class="${i===ei?'on':(typeof d.p[i]==='number'?'pieno':'')}">${i+1}</button>`).join('')}</div>
+    <div class="riga"><div class="muted">Esercizio ${ei+1} di ${v.punti.length} · max ${num(mx)} punti</div></div>
+    <div class="tast" id="tast">
+      ${passi.map(x => `<button data-v="${x}">${num(x)}</button>`).join('')}
+      <button class="vuota sp2" data-v="null">Non svolto</button>
+      <button class="ass sp2" data-v="ass">${d.ass ? 'Presente' : 'Assente'}</button>
+    </div>
+    <button class="btn sec" id="avanti">${vista.modo==='esercizio' ? 'Alunno successivo' : 'Esercizio successivo'}</button>`;
+
+  main.querySelectorAll('#esbar button').forEach(b => b.onclick = () => { vista.e = +b.dataset.e; render(); });
+  main.querySelectorAll('#tast button').forEach(b => b.onclick = () => {
+    const raw = b.dataset.v;
+    if(raw === 'ass'){ d.ass = !d.ass; salva(); return render(); }
+    d.ass = false;
+    d.totManuale = null;
+    d.p[ei] = raw === 'null' ? null : parseFloat(raw);
+    salva(); avanti();
+  });
+  $('#avanti').onclick = avanti;
+
+  function avanti(){
+    if(vista.modo === 'esercizio'){
+      const next = ai + 1;
+      if(next < S.classe.alunni.length){ vista.aId = S.classe.alunni[next].id; render(); }
+      else if(ei + 1 < v.punti.length){ vista.aId = S.classe.alunni[0].id; vista.e = ei + 1; render(); }
+      else { toast('Esercizi completati.'); vai(vista.padre); }
+    } else {
+      if(ei + 1 < v.punti.length){ vista.e = ei + 1; render(); }
+      else {
+        const next = ai + 1;
+        if(next < S.classe.alunni.length){ vista.aId = S.classe.alunni[next].id; vista.e = 0; render(); }
+        else { toast('Classe completata.'); vai(vista.padre); }
+      }
+    }
+  }
+}
+
+/* ---------- statistiche ---------- */
+function corpoStat(v, box){
+  const e = esitiDi(v);
+  if(!e.length){ box.innerHTML = `<div class="vuoto"><h3>Ancora nessun dato</h3><p>Le statistiche compaiono appena correggi la prima verifica.</p></div>`; return; }
+  const pct = e.map(x=>x.e.pct), voti = e.map(x=>x.e.voto);
+  const ass = S.classe.alunni.filter(a => (v.dati[a.id]||{}).ass).length;
+  const suff = voti.filter(x=>x>=6).length;
+  const righe = [
+    ['Corrette', e.length], ['Assenti', ass],
+    ['Media %', num(media(pct))], ['Mediana %', num(mediana(pct))],
+    ['Deviazione standard', num(devstd(pct))],
+    ['Minima / massima', num(Math.min(...pct)) + ' / ' + num(Math.max(...pct))],
+    ['Media voto', num(media(voti),2)],
+    ['Sufficienti', suff + ' su ' + e.length + ' (' + Math.round(suff/e.length*100) + '%)']
+  ];
+  const fasce = S.fasce.map((f,i) => {
+    const sup = i === 0 ? Infinity : S.fasce[i-1].da;
+    return {n:f.n, da:f.da, sup, c:pct.filter(p => p >= f.da && p < sup).length};
+  });
+  const perEs = v.punti.map((pt,i) => {
+    const vals = e.map(x => (v.dati[x.a.id].p||[])[i]).filter(x => typeof x === 'number');
+    return {i, pt, r: (vals.length && pt) ? media(vals)/pt : null, n: vals.length};
+  });
+  const col = r => r === null ? '#E7E0D1' : (r < .5 ? 'var(--rosso)' : (r < .7 ? '#D9A441' : 'var(--ok)'));
+
+  box.innerHTML = `
+    <div class="card"><h3 style="font-size:15px;margin-bottom:8px">Classe</h3>
+      <table>${righe.map(r=>`<tr><td>${r[0]}</td><td class="mono" style="text-align:right;font-weight:600">${r[1]}</td></tr>`).join('')}</table></div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:10px">Fasce</h3>
+      ${fasce.map(f=>`<div style="margin-bottom:11px">
+        <div class="riga" style="margin-bottom:4px"><span style="font-size:13.5px">${f.n}</span><span class="sp"></span>
+        <span class="mono muted">${f.c} · ${Math.round(f.c/e.length*100)}%</span></div>
+        <div class="barra"><i style="width:${f.c/e.length*100}%;background:var(--blu)"></i></div></div>`).join('')}
+      <div class="muted" style="margin-top:6px">Totale ${fasce.reduce((s,f)=>s+f.c,0)} — coincide sempre con le corrette.</div></div>
+    <div class="card"><h3 style="font-size:15px;margin-bottom:4px">Riuscita per esercizio</h3>
+      <div class="muted" style="margin-bottom:12px">Rosso sotto il 50%, giallo sotto il 70%. Qui vedi cosa rispiegare.</div>
+      ${perEs.map(x=>`<div style="margin-bottom:10px">
+        <div class="riga" style="margin-bottom:4px"><span class="mono" style="width:26px">${x.i+1}</span>
+        <span class="muted" style="font-size:12.5px">max ${num(x.pt)}</span><span class="sp"></span>
+        <span class="mono" style="font-weight:600">${x.r===null?'–':Math.round(x.r*100)+'%'}</span></div>
+        <div class="barra"><i style="width:${x.r===null?0:x.r*100}%;background:${col(x.r)}"></i></div></div>`).join('')}
+    </div>`;
+}
+
+/* ---------- impostazioni verifica ---------- */
+function corpoImp(v, box){
+  box.innerHTML = `
+    <label>Titolo</label><input type="text" id="t" value="${esc(v.titolo)}">
+    <label>Materia</label><select id="m">
+      <option ${v.materia==='Matematica'?'selected':''}>Matematica</option>
+      <option ${v.materia==='Scienze'?'selected':''}>Scienze</option></select>
+    <label>Data</label><input type="date" id="d" value="${v.data||''}">
+    <label>Punti massimi per esercizio</label>
+    <div id="pts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px">
+      ${v.punti.map((p,i)=>`<div><div class="muted mono" style="text-align:center">${i+1}</div>
+        <input type="number" step="0.5" min="0" data-i="${i}" value="${p}" style="text-align:center;padding:9px"></div>`).join('')}
+    </div>
+    <div class="muted" style="margin-top:8px">Totale verifica: <b class="mono" id="tot">${num(maxTot(v))}</b> punti</div>
+    <button class="btn sec" id="addes">Aggiungi esercizio</button>
+    <label style="margin-top:22px">Punti massimi ridotti (PDP)</label>
+    <div class="muted" style="margin-bottom:8px">Lascia vuoto per usare il totale della classe.</div>
+    ${S.classe.alunni.map(a=>`<div class="riga" style="margin-bottom:7px">
+      <span style="flex:1;font-size:14px">${esc(a.nome)}</span>
+      <input type="number" step="0.5" min="0" data-max="${a.id}" style="width:88px;text-align:center;padding:9px"
+        value="${(v.dati[a.id]&&v.dati[a.id].max)||''}" placeholder="${num(maxTot(v))}"></div>`).join('')}
+    <button class="btn dan" id="del" style="margin-top:24px">Elimina questa verifica</button>`;
+
+  $('#t').oninput = e => { v.titolo = e.target.value; titolo.textContent = v.titolo; salva(); };
+  $('#m').onchange = e => { v.materia = e.target.value; salva(); };
+  $('#d').onchange = e => { v.data = e.target.value; salva(); };
+  box.querySelectorAll('#pts input').forEach(i => i.onchange = () => {
+    v.punti[+i.dataset.i] = parseFloat(i.value) || 0; salva();
+    $('#tot').textContent = num(maxTot(v));
+  });
+  box.querySelectorAll('[data-max]').forEach(i => i.onchange = () => {
+    const id = i.dataset.max;
+    if(!v.dati[id]) v.dati[id] = {p:Array(v.punti.length).fill(null), ass:false, max:null, totManuale:null};
+    v.dati[id].max = parseFloat(i.value) || null; salva();
+  });
+  $('#addes').onclick = () => { v.punti.push(1); Object.values(v.dati).forEach(d=>d.p.push(null)); salva(); render(); };
+  $('#del').onclick = () => {
+    if(!confirm('Eliminare "' + v.titolo + '" e tutti i suoi punteggi?')) return;
+    S.verifiche = S.verifiche.filter(x => x.id !== v.id); salva(); vista = null; render();
+  };
+}
+
+/* ---------- classe ---------- */
+function vistaClasse(){
+  titolo.textContent = 'Classe ' + S.classe.nome;
+  if(!S.classe.alunni.length){
+    main.innerHTML = `<div class="vuoto"><h3>Elenco vuoto</h3><p>Aggiungi gli alunni o importa il file Excel da <b>Altro</b>.</p></div>
+      <button class="btn" id="ge">Gestisci alunni</button>`;
+    $('#ge').onclick = () => vai({tipo:'alunni'});
+    return;
+  }
+  const righe = S.classe.alunni.map(a => {
+    const voti = S.verifiche.map(v => esito(v, a.id)).filter(e => e.stato === 'ok').map(e => e.voto);
+    return {a, m:media(voti), n:voti.length};
+  });
+  main.innerHTML = righe.map(r => `<div class="arow click" data-a="${r.a.id}">
+      <span class="mono muted" style="width:22px">${r.a.n}</span>
+      <span class="nome">${esc(r.a.nome)}</span>
+      <span class="muted mono" style="margin-right:6px">${r.n}</span>
+      <span class="val ${r.m!==null&&r.m<6?'rosso':'blu'}">${r.m===null?'–':num(r.m,2)}</span></div>`).join('')
+    + `<button class="btn sec" id="ge">Gestisci alunni</button>`;
+  main.querySelectorAll('.arow').forEach(x => x.onclick = () => vai({tipo:'alunno', id:x.dataset.a}));
+  $('#ge').onclick = () => vai({tipo:'alunni'});
+}
+
+function schedaAlunno(){
+  const a = S.classe.alunni.find(x => x.id === vista.id);
+  if(!a){ vista = null; return render(); }
+  titolo.textContent = a.nome;
+  const per = m => {
+    const voti = S.verifiche.filter(v => v.materia === m).map(v => esito(v, a.id))
+                  .filter(e => e.stato === 'ok').map(e => e.voto);
+    return media(voti);
+  };
+  const tutte = S.verifiche.map(v => esito(v, a.id)).filter(e => e.stato==='ok').map(e => e.voto);
+  const ord = [...S.verifiche].sort((x,y)=>(y.data||'').localeCompare(x.data||''));
+  main.innerHTML = `
+    <div class="card"><div class="riga" style="text-align:center">
+      ${[['Matematica',per('Matematica')],['Scienze',per('Scienze')],['Generale',media(tutte)]]
+        .map(([n,m])=>`<div style="flex:1"><div class="big ${m!==null&&m<6?'rosso':'blu'}">${m===null?'–':num(m,2)}</div>
+        <div class="muted">${n}</div></div>`).join('')}
+    </div></div>
+    ${ord.map(v => {
+      const e = esito(v, a.id);
+      const val = e.stato==='ok' ? num(e.voto) : (e.stato==='assente' ? 'ASS' : '–');
+      return `<div class="arow"><span class="nome">${esc(v.titolo)}</span>
+        <span class="muted mono" style="font-size:12px">${e.stato==='ok'?num(e.pct)+'%':''}</span>
+        <span class="val ${e.stato==='ok'&&e.voto<6?'rosso':''}">${val}</span></div>`;
+    }).join('')}`;
+}
+
+function schedaAlunni(){
+  titolo.textContent = 'Alunni';
+  main.innerHTML = `
+    <label>Nome della classe</label><input type="text" id="cn" value="${esc(S.classe.nome)}">
+    <label style="margin-top:20px">Elenco</label>
+    ${S.classe.alunni.map(a=>`<div class="riga" style="margin-bottom:7px">
+      <span class="mono muted" style="width:22px">${a.n}</span>
+      <input type="text" data-n="${a.id}" value="${esc(a.nome)}" style="flex:1">
+      <button class="iconbtn rosso" data-del="${a.id}">Togli</button></div>`).join('')}
+    <label style="margin-top:18px">Aggiungi alunni</label>
+    <div class="muted" style="margin-bottom:8px">Un nome per riga: puoi incollare l'elenco intero.</div>
+    <textarea id="nuovi" rows="4" style="width:100%;padding:12px;border:1.5px solid var(--linea);border-radius:11px;font:inherit"></textarea>
+    <button class="btn" id="add">Aggiungi</button>`;
+  $('#cn').oninput = e => { S.classe.nome = e.target.value; salva(); };
+  main.querySelectorAll('[data-n]').forEach(i => i.onchange = () => {
+    S.classe.alunni.find(a=>a.id===i.dataset.n).nome = i.value.trim(); salva();
+  });
+  main.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const a = S.classe.alunni.find(x=>x.id===b.dataset.del);
+    if(!confirm('Togliere ' + a.nome + ' dall\'elenco? I suoi punteggi restano nelle verifiche ma non saranno più visibili.')) return;
+    S.classe.alunni = S.classe.alunni.filter(x=>x.id!==a.id);
+    S.classe.alunni.forEach((x,i)=>x.n=i+1); salva(); render();
+  });
+  $('#add').onclick = () => {
+    const righe = $('#nuovi').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    righe.forEach(n => S.classe.alunni.push({id:uid(), n:S.classe.alunni.length+1, nome:n}));
+    S.classe.alunni.sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
+    S.classe.alunni.forEach((x,i)=>x.n=i+1);
+    salva(); render();
+  };
+}
+
+/* ---------- altro ---------- */
+function vistaAltro(){
+  titolo.textContent = 'Altro';
+  main.innerHTML = `
+    <div class="card click" id="sog"><h3 style="font-size:16px">Soglie dei voti</h3>
+      <div class="muted">Percentuale minima per ogni voto. Vale per tutte le verifiche.</div></div>
+    <div class="card click" id="alu"><h3 style="font-size:16px">Alunni</h3>
+      <div class="muted">${S.classe.alunni.length} nell'elenco della ${esc(S.classe.nome)}</div></div>
+    <div class="card"><h3 style="font-size:16px">Importa dall'Excel</h3>
+      <div class="muted" style="margin-bottom:10px">Legge il file delle verifiche: un foglio per verifica, riga 2 con i punti, colonna TOTALE.</div>
+      <input type="file" id="xls" accept=".xlsx,.xls"></div>
+    <div class="card"><h3 style="font-size:16px">Backup</h3>
+      <div class="muted" style="margin-bottom:10px">Il file esportato è cifrato: si riapre solo con la passphrase che usi adesso.</div>
+      <button class="btn sec" id="exp">Esporta backup cifrato</button>
+      <input type="file" id="imp" accept=".json" style="margin-top:12px"></div>
+    <div class="card"><h3 style="font-size:16px">Passphrase</h3>
+      <div class="muted" style="margin-bottom:10px">Cambiandola i dati vengono ricifrati. I backup vecchi restano legati alla passphrase con cui li hai creati.</div>
+      <button class="btn sec" id="cp">Cambia passphrase</button></div>
+    <div class="muted" style="text-align:center;margin:26px 0 10px">COREZ 4.10 · dati cifrati su questo dispositivo</div>`;
+  $('#sog').onclick = () => vai({tipo:'soglie'});
+  $('#alu').onclick = () => vai({tipo:'alunni'});
+  $('#xls').onchange = e => importaExcel(e.target.files[0]);
+  $('#exp').onclick = esportaBackup;
+  $('#imp').onchange = e => importaBackup(e.target.files[0]);
+  $('#cp').onclick = cambiaPassphrase;
+}
+
+function schedaSoglie(){
+  titolo.textContent = 'Soglie dei voti';
+  main.innerHTML = `<div class="muted" style="margin-bottom:14px">A ogni percentuale minima corrisponde un voto. Le soglie restano in ordine crescente.</div>
+    <table><tr><th>% minima</th><th>Voto</th></tr>
+    ${S.soglie.map((s,i)=>`<tr>
+      <td><input type="number" data-p="${i}" value="${s.p}" style="width:88px;padding:8px;text-align:center"></td>
+      <td><input type="number" step="0.5" data-v="${i}" value="${s.v}" style="width:88px;padding:8px;text-align:center"></td></tr>`).join('')}
+    </table>
+    <button class="btn sec" id="rip" style="margin-top:18px">Ripristina le soglie del tuo file</button>`;
+  main.querySelectorAll('[data-p]').forEach(i => i.onchange = () => {
+    S.soglie[+i.dataset.p].p = parseFloat(i.value)||0;
+    S.soglie.sort((a,b)=>a.p-b.p); salva(); render();
+  });
+  main.querySelectorAll('[data-v]').forEach(i => i.onchange = () => {
+    S.soglie[+i.dataset.v].v = parseFloat(i.value)||0; salva();
+  });
+  $('#rip').onclick = () => { S.soglie = nuovoStato().soglie; salva(); render(); };
+}
+
+/* ---------- import Excel ---------- */
+const SCIENZE = /scienz|idrosfer|aria|atmosfer|temperatur|calore|unit/i;
+function importaExcel(file){
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = ev => {
+    let wb;
+    try { wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'}); }
+    catch(err){ return toast('File non leggibile.'); }
+    let nuoveV = 0;
+    const trovaAlunno = nome => {
+      let a = S.classe.alunni.find(x => x.nome.toUpperCase() === nome.toUpperCase());
+      if(!a){ a = {id:uid(), n:S.classe.alunni.length+1, nome}; S.classe.alunni.push(a); }
+      return a;
+    };
+    wb.SheetNames.forEach(nome => {
+      if(/^(parametri|riepilogo)$/i.test(nome)) return;
+      const righe = XLSX.utils.sheet_to_json(wb.Sheets[nome], {header:1, raw:true});
+      if(righe.length < 3) return;
+      const iTot = righe[0].findIndex(c => String(c).trim().toUpperCase() === 'TOTALE');
+      if(iTot < 3) return;
+      const punti = righe[1].slice(2, iTot).map(x => typeof x === 'number' ? x : 0);
+      const v = {id:uid(), titolo:nome, materia: SCIENZE.test(nome) ? 'Scienze' : 'Matematica',
+                 data:'', punti, dati:{}};
+      for(let r = 2; r < righe.length; r++){
+        const rg = righe[r] || [];
+        if(typeof rg[0] !== 'number' || !rg[1]) continue;
+        const a = trovaAlunno(String(rg[1]).trim());
+        const celle = rg.slice(2, iTot);
+        const p = punti.map((_,i) => typeof celle[i] === 'number' ? celle[i] : null);
+        const ass = celle.some(c => String(c).trim().toUpperCase() === 'A');
+        const d = {p, ass, max:null, totManuale:null};
+        const maxRid = rg[iTot+3];
+        if(typeof maxRid === 'number' && maxRid > 0) d.max = maxRid;
+        if(!ass && !p.some(x => typeof x === 'number') && typeof rg[iTot] === 'number' && rg[iTot] > 0)
+          d.totManuale = rg[iTot];
+        v.dati[a.id] = d;
+      }
+      const righeDati = Object.values(v.dati);
+      // un foglio senza alcun punteggio e' un modello vuoto: non lo importo
+      if(!righeDati.some(d => d.ass || d.totManuale !== null || d.p.some(x => typeof x === 'number'))) return;
+      // un massimo uguale per tutti non e' una riduzione personale: e' il totale del foglio
+      const maxs = righeDati.map(d => d.max);
+      if(maxs.length && maxs.every(m => m !== null && m === maxs[0])) righeDati.forEach(d => d.max = null);
+      S.verifiche.push(v); nuoveV++;
+    });
+    S.classe.alunni.sort((a,b)=>a.nome.localeCompare(b.nome,'it'));
+    S.classe.alunni.forEach((x,i)=>x.n=i+1);
+    salva();
+    toast(nuoveV ? `Importate ${nuoveV} verifiche.` : 'Nessun foglio riconosciuto.');
+    tab = 'verifiche'; vista = null;
+    document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.t === 'verifiche'));
+    render();
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+/* ---------- backup ---------- */
+async function esportaBackup(){
+  const {iv,ct} = await cifra(K, S);
+  const blob = new Blob([JSON.stringify({app:'corez', s:b64(salt), iv, ct}, null, 1)], {type:'application/json'});
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = 'corez-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); URL.revokeObjectURL(url);
+  toast('Backup cifrato scaricato.');
+}
+function importaBackup(file){
+  if(!file) return;
+  const fr = new FileReader();
+  fr.onload = async ev => {
+    let f;
+    try { f = JSON.parse(ev.target.result); } catch(e){ return toast('File non valido.'); }
+    if(!f.ct || !f.iv || !f.s) return toast('Non è un backup di COREZ.');
+    const pass = prompt('Passphrase con cui è stato creato questo backup:');
+    if(!pass) return;
+    try {
+      const k2 = await derivaChiave(pass, unb64(f.s));
+      const dati = await decifra(k2, f.iv, f.ct);
+      if(!confirm('Sostituire i dati attuali con quelli del backup?')) return;
+      S = dati; salva(); vista = null; render();
+      toast('Backup ripristinato.');
+    } catch(e){ toast('Passphrase errata o file danneggiato.'); }
+  };
+  fr.readAsText(file);
+}
+async function cambiaPassphrase(){
+  const p1 = prompt('Nuova passphrase (almeno 8 caratteri):');
+  if(!p1) return;
+  if(p1.length < 8) return toast('Troppo corta.');
+  if(prompt('Ripetila:') !== p1) return toast('Le due passphrase non coincidono.');
+  salt = crypto.getRandomValues(new Uint8Array(16));
+  K = await derivaChiave(p1, salt);
+  salva();
+  toast('Passphrase aggiornata.');
+}
+
+/* ---------- blocco ---------- */
+let ultimoTocco = Date.now();
+const ATTESA = 5*60*1000;
+['click','keydown','touchstart'].forEach(e => document.addEventListener(e, () => ultimoTocco = Date.now(), true));
+setInterval(() => { if(K && Date.now() - ultimoTocco > ATTESA) blocca(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) ultimoTocco = Date.now();
+  else if(K && Date.now() - ultimoTocco > ATTESA) blocca();
+});
+function blocca(){
+  K = null; S = null;
+  $('#app').style.display = 'none';
+  $('#lock').style.display = 'flex';
+  $('#p1').value = ''; $('#lockMsg').textContent = '';
+  preparaLock();
+}
+$('#lockNow').onclick = blocca;
+
+/* ---------- avvio ---------- */
+function preparaLock(){
+  const primoAvvio = !Box.get(CHIAVE);
+  $('#p2').style.display = primoAvvio ? '' : 'none';
+  $('#lockBtn').textContent = primoAvvio ? 'Crea l\'archivio' : 'Apri';
+  $('#lockSub').textContent = primoAvvio
+    ? 'Scegli una passphrase: cifra i dati su questo dispositivo.'
+    : 'Inserisci la passphrase per aprire i dati.';
+  $('#lockNota').textContent = primoAvvio
+    ? 'Non esiste recupero: senza questa passphrase i dati sono illeggibili, anche per te. Annotala dove tieni le credenziali importanti.'
+    : '';
+  $('#p1').focus();
+}
+$('#lockBtn').onclick = apri;
+$('#p1').onkeydown = e => { if(e.key === 'Enter') apri(); };
+$('#p2').onkeydown = e => { if(e.key === 'Enter') apri(); };
+
+async function apri(){
+  const msg = $('#lockMsg'), pass = $('#p1').value;
+  const grezzo = Box.get(CHIAVE);
+  msg.textContent = '';
+  if(!pass) return;
+  if(!grezzo){
+    if(pass.length < 8) return msg.textContent = 'Almeno 8 caratteri.';
+    if(pass !== $('#p2').value) return msg.textContent = 'Le due passphrase non coincidono.';
+    salt = crypto.getRandomValues(new Uint8Array(16));
+    K = await derivaChiave(pass, salt);
+    S = nuovoStato();
+    salva();
+  } else {
+    const f = JSON.parse(grezzo);
+    salt = unb64(f.s);
+    try {
+      const k = await derivaChiave(pass, salt);
+      S = await decifra(k, f.iv, f.ct);
+      K = k;
+    } catch(e){ return msg.textContent = 'Passphrase errata.'; }
+  }
+  ultimoTocco = Date.now();
+  $('#lock').style.display = 'none';
+  $('#app').style.display = 'flex';
+  render();
+}
+preparaLock();
+</script>
+</body>
+</html>
