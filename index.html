@@ -87,6 +87,9 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 .cls::-webkit-scrollbar{display:none}
 .cls button{flex:0 0 auto;padding:8px 15px;border-radius:20px;border:1.5px solid var(--linea);background:var(--card);font-size:13.5px;font-weight:600;color:var(--grafite)}
 .cls button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.n104{color:#C0392B;font-weight:600}
+.ndsa{color:#1B5C68;font-weight:600}
+.nbes{color:#6E7B33;font-weight:600}
 .vuoto{text-align:center;padding:52px 20px;color:var(--grafite)}
 .vuoto h3{font-size:19px;color:var(--ink);margin-bottom:8px}
 
@@ -106,6 +109,7 @@ th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--gr
 .tast button{padding:16px 4px;border-radius:12px;border:1.5px solid var(--linea);background:var(--card);font-family:var(--mono);font-size:17px;font-weight:600}
 .tast button:active{background:#E7E0D1}
 .tast button.sp2{grid-column:span 2}
+.tast button.sp4{grid-column:span 4}
 .tast button.ass{border-color:#EDC9C4;color:var(--rosso)}
 .tast button.vuota{color:var(--grafite)}
 .toast{position:fixed;left:16px;right:16px;bottom:84px;background:var(--ink);color:#fff;padding:13px 16px;border-radius:12px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
@@ -289,6 +293,9 @@ function toast(t){
   const el = $('#toast'); el.textContent = t; el.classList.add('on');
   setTimeout(()=>el.classList.remove('on'), 2200);
 }
+const CATEGORIE = ['104','DSA','BES'];
+const COLORE = {'104':'n104', 'DSA':'ndsa', 'BES':'nbes'};
+const tinta = a => a && a.cat ? COLORE[a.cat] : '';
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 function selettore(){
@@ -313,6 +320,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
 });
 
 function render(){
+  titolo.className = '';
   back.style.display = vista ? '' : 'none';
   if(vista){
     ({verifica: schedaVerifica, correggi: schedaCorreggi, alunno: schedaAlunno,
@@ -367,13 +375,35 @@ function schedaNuovaVerifica(){
     <label>Materia</label><select id="m"><option>Matematica</option><option>Scienze</option></select>
     <label>Data</label><input type="date" id="d" value="${new Date().toISOString().slice(0,10)}">
     <label>Numero di esercizi</label><input type="number" id="n" min="1" max="40" value="10">
+    <label>Punti massimi di ogni esercizio</label>
+    <div class="muted" style="margin-bottom:8px">Cambiali qui adesso, o dopo in Impostazioni.</div>
+    <div id="griglia" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px"></div>
+    <div class="muted" style="margin-top:8px">Totale: <b class="mono" id="somma">–</b> punti</div>
     <button class="btn" id="crea">Crea verifica</button>`;
+  let punti = Array(10).fill(1);
+  disegna();
+  $('#n').onchange = () => {
+    const n = Math.max(1, Math.min(40, parseInt($('#n').value) || 10));
+    $('#n').value = n;
+    while(punti.length < n) punti.push(punti[punti.length-1] || 1);
+    punti.length = n;
+    disegna();
+  };
+  function disegna(){
+    $('#griglia').innerHTML = punti.map((p,i) =>
+      `<div><div class="muted mono" style="text-align:center">${i+1}</div>
+       <input type="number" step="0.25" min="0" data-i="${i}" value="${p}" style="text-align:center;padding:9px"></div>`).join('');
+    $('#somma').textContent = num(somma(punti));
+    main.querySelectorAll('#griglia input').forEach(inp => inp.onchange = () => {
+      punti[+inp.dataset.i] = parseFloat(inp.value) || 0;
+      $('#somma').textContent = num(somma(punti));
+    });
+  }
   $('#crea').onclick = () => {
     const t = $('#t').value.trim();
     if(!t) return toast('Serve un titolo.');
-    const n = Math.max(1, Math.min(40, parseInt($('#n').value) || 10));
     const v = {id:uid(), titolo:t, materia:$('#m').value, data:$('#d').value,
-               classeId:S.attiva, punti:Array(n).fill(1), dati:{}};
+               classeId:S.attiva, punti:[...punti], passo:0.5, dati:{}};
     S.verifiche.push(v); salva();
     vai({tipo:'verifica', id:v.id});
   };
@@ -414,7 +444,7 @@ function corpoCorreggi(v, box){
       else if(e.stato === 'ok'){ val = num(e.voto); cls = e.voto < 6 ? 'rosso' : 'blu'; }
       return `<div class="arow ${e.stato==='ok'||e.stato==='assente'?'done':''}" data-a="${a.id}">
         <span class="mono muted" style="width:22px">${a.n}</span>
-        <span class="nome">${esc(a.nome)}</span>
+        <span class="nome ${tinta(a)}">${esc(a.nome)}</span>
         <span class="val ${cls}">${val}</span></div>`;
     }).join('');
   box.querySelectorAll('.arow').forEach(r => r.onclick = () =>
@@ -437,14 +467,16 @@ function schedaCorreggi(){
 
   titolo.textContent = vista.modo === 'esercizio' ? `Esercizio ${ei+1}` : a.nome;
 
+  const passo = v.passo || 0.5;
   const passi = [];
-  for(let x = 0; x <= mx + 0.0001; x += 0.5) passi.push(Math.round(x*2)/2);
+  for(let x = 0; x <= mx + 1e-9; x += passo) passi.push(Math.round(x/passo)*passo);
+  if(passi.length && Math.abs(passi[passi.length-1] - mx) > 1e-9) passi.push(mx);
 
   main.innerHTML = `
     <div class="card" style="padding:12px 14px">
       <div class="riga">
         <div style="min-width:0">
-          <div style="font-family:var(--display);font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.nome)}</div>
+          <div class="${tinta(a)}" style="font-family:var(--display);font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.nome)}</div>
           <div class="muted">${vista.modo==='esercizio' ? 'correzione per esercizio' : esc(v.titolo)}</div>
         </div><span class="sp"></span>
         <div style="text-align:right">
@@ -457,9 +489,10 @@ function schedaCorreggi(){
       `<button data-e="${i}" class="${i===ei?'on':(typeof d.p[i]==='number'?'pieno':'')}">${i+1}</button>`).join('')}</div>
     <div class="riga"><div class="muted">Esercizio ${ei+1} di ${v.punti.length} · max ${num(mx)} punti</div></div>
     <div class="tast" id="tast">
-      ${passi.map(x => `<button data-v="${x}">${num(x)}</button>`).join('')}
+      ${passi.map(x => `<button data-v="${x}">${num(x,2)}</button>`).join('')}
       <button class="vuota sp2" data-v="null">Non svolto</button>
-      <button class="ass sp2" data-v="ass">${d.ass ? 'Presente' : 'Assente'}</button>
+      <button class="vuota sp2" data-v="altro">Altro…</button>
+      <button class="ass sp4" data-v="ass">${d.ass ? 'Segna presente' : 'Segna assente'}</button>
     </div>
     <button class="btn sec" id="avanti">${vista.modo==='esercizio' ? 'Alunno successivo' : 'Esercizio successivo'}</button>`;
 
@@ -467,9 +500,18 @@ function schedaCorreggi(){
   main.querySelectorAll('#tast button').forEach(b => b.onclick = () => {
     const raw = b.dataset.v;
     if(raw === 'ass'){ d.ass = !d.ass; salva(); return render(); }
+    let val;
+    if(raw === 'altro'){
+      const r = prompt(`Punteggio dell'esercizio ${ei+1} (massimo ${num(mx,2)}):`,
+                       typeof d.p[ei] === 'number' ? d.p[ei] : '');
+      if(r === null) return;
+      val = parseFloat(String(r).replace(',','.'));
+      if(isNaN(val) || val < 0) return toast('Valore non valido.');
+      if(val > mx && !confirm(`${num(val,2)} supera il massimo di ${num(mx,2)}. Confermi?`)) return;
+    } else val = raw === 'null' ? null : parseFloat(raw);
     d.ass = false;
     d.totManuale = null;
-    d.p[ei] = raw === 'null' ? null : parseFloat(raw);
+    d.p[ei] = val;
     salva(); avanti();
   });
   $('#avanti').onclick = avanti;
@@ -550,10 +592,13 @@ function corpoImp(v, box){
     </div>
     <div class="muted" style="margin-top:8px">Totale verifica: <b class="mono" id="tot">${num(maxTot(v))}</b> punti</div>
     <button class="btn sec" id="addes">Aggiungi esercizio</button>
-    <label style="margin-top:22px">Punti massimi ridotti (PDP)</label>
-    <div class="muted" style="margin-bottom:8px">Lascia vuoto per usare il totale della classe.</div>
+    <label style="margin-top:20px">Passo del tastierino</label>
+    <select id="passo">${[0.25,0.5,1].map(x=>`<option value="${x}" ${(v.passo||0.5)===x?'selected':''}>${num(x,2)} punti</option>`).join('')}</select>
+    <div class="muted" style="margin-top:6px">Con "Altro…" puoi comunque inserire qualunque valore.</div>
+    <label style="margin-top:22px">Punti massimi ridotti</label>
+    <div class="muted" style="margin-bottom:8px">Per chi svolge una prova ridotta. Lascia vuoto per usare il totale della classe.</div>
     ${AL().map(a=>`<div class="riga" style="margin-bottom:7px">
-      <span style="flex:1;font-size:14px">${esc(a.nome)}</span>
+      <span class="${tinta(a)}" style="flex:1;font-size:14px;min-width:0">${esc(a.nome)}</span>
       <input type="number" step="0.5" min="0" data-max="${a.id}" style="width:88px;text-align:center;padding:9px"
         value="${(v.dati[a.id]&&v.dati[a.id].max)||''}" placeholder="${num(maxTot(v))}"></div>`).join('')}
     <button class="btn dan" id="del" style="margin-top:24px">Elimina questa verifica</button>`;
@@ -570,6 +615,7 @@ function corpoImp(v, box){
     if(!v.dati[id]) v.dati[id] = {p:Array(v.punti.length).fill(null), ass:false, max:null, totManuale:null};
     v.dati[id].max = parseFloat(i.value) || null; salva();
   });
+  $('#passo').onchange = e => { v.passo = parseFloat(e.target.value); salva(); };
   $('#addes').onclick = () => { v.punti.push(1); Object.values(v.dati).forEach(d=>d.p.push(null)); salva(); render(); };
   $('#del').onclick = () => {
     if(!confirm('Eliminare "' + v.titolo + '" e tutti i suoi punteggi?')) return;
@@ -593,7 +639,7 @@ function vistaClasse(){
   });
   main.innerHTML = selettore() + righe.map(r => `<div class="arow click" data-a="${r.a.id}">
       <span class="mono muted" style="width:22px">${r.a.n}</span>
-      <span class="nome">${esc(r.a.nome)}</span>
+      <span class="nome ${tinta(r.a)}">${esc(r.a.nome)}</span>
       <span class="muted mono" style="margin-right:6px">${r.n}</span>
       <span class="val ${r.m!==null&&r.m<6?'rosso':'blu'}">${r.m===null?'–':num(r.m,2)}</span></div>`).join('')
     + `<button class="btn sec" id="ge">Gestisci alunni</button>`;
@@ -606,6 +652,7 @@ function schedaAlunno(){
   const a = AL().find(x => x.id === vista.id);
   if(!a){ vista = null; return render(); }
   titolo.textContent = a.nome;
+  titolo.className = tinta(a);
   const per = m => {
     const voti = VF().filter(v => v.materia === m).map(v => esito(v, a.id))
                   .filter(e => e.stato === 'ok').map(e => e.voto);
@@ -635,9 +682,14 @@ function schedaAlunni(){
     <label>Nome della classe</label><input type="text" id="cn" value="${esc(CL().nome)}">
     <button class="btn sec" id="nuovaCl">Aggiungi una classe</button>
     <label style="margin-top:20px">Elenco</label>
+    <div class="muted" style="margin:-2px 0 10px">Il colore del nome resta solo qui dentro, nell'archivio cifrato.</div>
     ${AL().map(a=>`<div class="riga" style="margin-bottom:7px">
       <span class="mono muted" style="width:22px">${a.n}</span>
-      <input type="text" data-n="${a.id}" value="${esc(a.nome)}" style="flex:1">
+      <input type="text" data-n="${a.id}" value="${esc(a.nome)}" class="${tinta(a)}" style="flex:1;min-width:0">
+      <select data-cat="${a.id}" style="width:78px;padding:9px 6px">
+        <option value="">—</option>
+        ${CATEGORIE.map(c=>`<option value="${c}" ${a.cat===c?'selected':''}>${c}</option>`).join('')}
+      </select>
       <button class="iconbtn rosso" data-del="${a.id}">Togli</button></div>`).join('')}
     <label style="margin-top:18px">Aggiungi alunni</label>
     <div class="muted" style="margin-bottom:8px">Un nome per riga: puoi incollare l'elenco intero.</div>
@@ -653,6 +705,9 @@ function schedaAlunni(){
   $('#cn').oninput = e => { CL().nome = e.target.value; salva(); titolo.textContent = 'Classi e alunni'; };
   main.querySelectorAll('[data-n]').forEach(i => i.onchange = () => {
     AL().find(a=>a.id===i.dataset.n).nome = i.value.trim(); salva();
+  });
+  main.querySelectorAll('[data-cat]').forEach(sel => sel.onchange = () => {
+    AL().find(a => a.id === sel.dataset.cat).cat = sel.value || null; salva(); render();
   });
   main.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
     const a = AL().find(x=>x.id===b.dataset.del);
